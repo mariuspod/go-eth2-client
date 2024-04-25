@@ -50,7 +50,7 @@ func (s *Service) post(ctx context.Context, endpoint string, body io.Reader) (io
 		e.Str("body", string(bodyBytes)).Msg("POST request")
 	}
 
-	callURL := urlForCall(s.base, endpoint, "")
+	callURL := urlForCall(s.base, s.path, endpoint, "")
 
 	opCtx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
@@ -133,7 +133,7 @@ func (s *Service) post2(ctx context.Context,
 		}
 	}
 
-	callURL := urlForCall(s.base, endpoint, query)
+	callURL := urlForCall(s.base, s.path, endpoint, query)
 	log.Trace().Str("url", callURL.String()).Msg("URL to POST")
 	span.SetAttributes(attribute.String("url", callURL.String()))
 
@@ -279,7 +279,7 @@ func (s *Service) get(ctx context.Context,
 	log := s.log.With().Str("id", fmt.Sprintf("%02x", rand.Int31())).Str("address", s.address).Str("endpoint", endpoint).Logger()
 	log.Trace().Msg("GET request")
 
-	callURL := urlForCall(s.base, endpoint, query)
+	callURL := urlForCall(s.base, s.path, endpoint, query)
 	log.Trace().Str("url", callURL.String()).Msg("URL to GET")
 	span.SetAttributes(attribute.String("url", callURL.String()))
 
@@ -470,11 +470,12 @@ func metadataFromHeaders(headers map[string]string) map[string]any {
 
 // urlForCall patches together a URL for a call.
 func urlForCall(base *url.URL,
+	path string,
 	endpoint string,
 	query string,
 ) *url.URL {
 	callURL := *base
-	callURL.Path = endpoint
+	callURL.Path = path + endpoint
 	if callURL.RawQuery == "" {
 		callURL.RawQuery = query
 	} else if query != "" {

@@ -26,6 +26,7 @@ func TestParseAddress(t *testing.T) {
 		input   string
 		base    string
 		address string
+		path    string
 		err     string
 	}{
 		{
@@ -33,36 +34,49 @@ func TestParseAddress(t *testing.T) {
 			input:   "foo",
 			base:    "http://foo",
 			address: "http://foo",
+			path:    "",
 		},
 		{
 			name:    "Port",
 			input:   "foo:12345",
 			base:    "http://foo:12345",
 			address: "http://foo:12345",
+			path:    "",
 		},
 		{
 			name:    "Scheme",
 			input:   "https://foo",
 			base:    "https://foo",
 			address: "https://foo",
-		},
-		{
-			name:    "Query",
-			input:   "http://foo.com?a=1&b=2",
-			base:    "http://foo.com?a=1&b=2",
-			address: "http://foo.com?a=***&b=***",
-		},
-		{
-			name:    "User",
-			input:   "http://user@foo.com?a=1&b=2",
-			base:    "http://user@foo.com?a=1&b=2",
-			address: "http://user@foo.com?a=***&b=***",
+			path:    "",
 		},
 		{
 			name:    "Pass",
 			input:   "http://user:pass@foo.com?a=1&b=2",
 			base:    "http://user:pass@foo.com?a=1&b=2",
 			address: "http://user:%2A%2A%2A@foo.com?a=***&b=***",
+			path:    "",
+		},
+		{
+			name:    "User",
+			input:   "http://user@foo.com?a=1&b=2",
+			base:    "http://user@foo.com?a=1&b=2",
+			address: "http://user@foo.com?a=***&b=***",
+			path:    "",
+		},
+		{
+			name:    "Pass",
+			input:   "http://user:pass@foo.com?a=1&b=2",
+			base:    "http://user:pass@foo.com?a=1&b=2",
+			address: "http://user:%2A%2A%2A@foo.com?a=***&b=***",
+			path:    "",
+		},
+		{
+			name:    "Path",
+			input:   "https://foo/barpath",
+			base:    "https://foo",
+			address: "https://foo",
+			path:    "/barpath",
 		},
 		{
 			name:  "Invalid",
@@ -73,12 +87,13 @@ func TestParseAddress(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			base, address, err := parseAddress(test.input)
+			base, address, path, err := parseAddress(test.input)
 			if test.err != "" {
 				require.EqualError(t, err, test.err)
 			} else {
 				require.Equal(t, test.base, base.String())
 				require.Equal(t, test.address, address.String())
+				require.Equal(t, test.path, path)
 			}
 		})
 	}
@@ -97,6 +112,7 @@ func TestURLForCall(t *testing.T) {
 	tests := []struct {
 		name     string
 		base     *url.URL
+		path     string
 		endpoint string
 		query    string
 		expected string
@@ -104,12 +120,14 @@ func TestURLForCall(t *testing.T) {
 		{
 			name:     "Simple",
 			base:     mustParseURL("http://example.com"),
+			path:     "",
 			endpoint: "/foo",
 			expected: "http://example.com/foo",
 		},
 		{
 			name:     "WithQuery",
 			base:     mustParseURL("http://example.com"),
+			path:     "",
 			endpoint: "/foo",
 			query:    "bar=3",
 			expected: "http://example.com/foo?bar=3",
@@ -117,21 +135,30 @@ func TestURLForCall(t *testing.T) {
 		{
 			name:     "WithBaseQuery",
 			base:     mustParseURL("http://example.com?bar=3"),
+			path:     "",
 			endpoint: "/foo",
 			expected: "http://example.com/foo?bar=3",
 		},
 		{
 			name:     "Complex",
 			base:     mustParseURL("http://user:pass@foo.com?a=1&b=2"),
+			path:     "",
 			endpoint: "/foo",
 			query:    "bar=3",
 			expected: "http://user:pass@foo.com/foo?a=1&b=2&bar=3",
+		},
+		{
+			name:     "WithPath",
+			base:     mustParseURL("http://foo.com"),
+			path:     "/barpath",
+			endpoint: "/foo",
+			expected: "http://foo.com/barpath/foo",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			url := urlForCall(test.base, test.endpoint, test.query)
+			url := urlForCall(test.base, test.path, test.endpoint, test.query)
 			require.Equal(t, test.expected, url.String())
 		})
 	}

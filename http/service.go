@@ -40,6 +40,7 @@ type Service struct {
 	log zerolog.Logger
 
 	base    *url.URL
+	path    string
 	address string
 	client  *http.Client
 	timeout time.Duration
@@ -108,7 +109,7 @@ func New(ctx context.Context, params ...Parameter) (client.Service, error) {
 		},
 	}
 
-	base, address, err := parseAddress(parameters.address)
+	base, address, path, err := parseAddress(parameters.address)
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +118,7 @@ func New(ctx context.Context, params ...Parameter) (client.Service, error) {
 		log:                 log,
 		base:                base,
 		address:             address.String(),
+		path:                path,
 		client:              httpClient,
 		timeout:             parameters.timeout,
 		userIndexChunkSize:  parameters.indexChunkSize,
@@ -384,14 +386,15 @@ func (s *Service) assertIsSynced(ctx context.Context) error {
 	return nil
 }
 
-func parseAddress(address string) (*url.URL, *url.URL, error) {
+func parseAddress(address string) (*url.URL, *url.URL, string, error) {
 	if !strings.HasPrefix(address, "http") {
 		address = fmt.Sprintf("http://%s", address)
 	}
 	base, err := url.Parse(address)
 	if err != nil {
-		return nil, nil, errors.Join(errors.New("invalid URL"), err)
+		return nil, nil, "", errors.Join(errors.New("invalid URL"), err)
 	}
+	path := base.Path
 	base.Path = ""
 	baseAddress := *base
 	if _, pwExists := baseAddress.User.Password(); pwExists {
@@ -403,5 +406,5 @@ func parseAddress(address string) (*url.URL, *url.URL, error) {
 		baseAddress.RawQuery = sensitiveRegex.ReplaceAllString(baseAddress.RawQuery, "=***$2")
 	}
 
-	return base, &baseAddress, nil
+	return base, &baseAddress, path, nil
 }
